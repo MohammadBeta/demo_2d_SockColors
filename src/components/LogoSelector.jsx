@@ -1,6 +1,7 @@
-export default function LogoSelector({ logos, activeLogo, onAddLogo }) {
+export default function LogoSelector({ logos, activeLogo, logoColor, onAddLogo, onLogoSelect }) {
   const handleDragStart = (event, logo) => {
-    event.dataTransfer.setData('application/json', JSON.stringify(logo));
+    const logoData = { ...logo, color: logoColor };
+    event.dataTransfer.setData('application/json', JSON.stringify(logoData));
     event.dataTransfer.effectAllowed = 'copy';
   };
 
@@ -22,7 +23,10 @@ export default function LogoSelector({ logos, activeLogo, onAddLogo }) {
             }`}
             draggable
             type="button"
-            onClick={() => onAddLogo(logo)}
+            onClick={() => {
+              onLogoSelect(logo);
+              onAddLogo(logo);
+            }}
             onDragStart={(event) => handleDragStart(event, logo)}
           >
             <img

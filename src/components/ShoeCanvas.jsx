@@ -331,13 +331,18 @@ const ShoeCanvas = forwardRef(function ShoeCanvas({ productSrc, color, opacity }
     updateColorOverlay(color, opacity);
   }, [color, opacity, updateColorOverlay]);
 
-  const addLogoObject = async (src, position) => {
+  const addLogoObject = async (src, position, logoColor = '#000000') => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
     const logo = await loadFabricImage(src);
     const targetWidth = 128;
     const scale = targetWidth / logo.width;
+
+    if (logoColor && logoColor !== '#000000') {
+      logo.filters = [new fabric.Image.filters.Tint({ color: logoColor })];
+      logo.applyFilters();
+    }
 
     logo.set({
       left: position?.x ?? CANVAS_WIDTH / 2 - 40,
@@ -356,8 +361,8 @@ const ShoeCanvas = forwardRef(function ShoeCanvas({ productSrc, color, opacity }
   };
 
   useImperativeHandle(ref, () => ({
-    addLogo(src, position) {
-      addLogoObject(src, position);
+    addLogo(src, position, logoColor) {
+      addLogoObject(src, position, logoColor);
     },
     exportPng() {
       const canvas = canvasRef.current;
@@ -390,7 +395,7 @@ const ShoeCanvas = forwardRef(function ShoeCanvas({ productSrc, color, opacity }
       y: ((event.clientY - bounds.top) / bounds.height) * CANVAS_HEIGHT
     };
 
-    addLogoObject(logo.src, position);
+    addLogoObject(logo.src, position, logo.color);
   };
 
   return (

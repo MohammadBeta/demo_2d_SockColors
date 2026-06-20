@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import ShoeCanvas from './components/ShoeCanvas.jsx';
 import ColorPicker from './components/ColorPicker.jsx';
 import LogoSelector from './components/LogoSelector.jsx';
+import LogoColorPicker from './components/LogoColorPicker.jsx';
 import ProductImagePicker from './components/ProductImagePicker.jsx';
 import SaveDesign from './components/SaveDesign.jsx';
 
@@ -17,6 +18,7 @@ export default function App() {
   const [shoeColor, setShoeColor] = useState('#dc2626');
   const [opacity, setOpacity] = useState(1);
   const [activeLogo, setActiveLogo] = useState(logos[0]);
+  const [logoColor, setLogoColor] = useState('#000000');
   const [productSrc, setProductSrc] = useState('/assets/shoe.png');
   const [productName, setProductName] = useState('Sample sock image');
 
@@ -29,7 +31,7 @@ export default function App() {
   }, []);
 
   const addLogo = (logo, position) => {
-    canvasRef.current?.addLogo(logo.src, position);
+    canvasRef.current?.addLogo(logo.src, position, logoColor);
     setActiveLogo(logo);
   };
 
@@ -100,7 +102,17 @@ export default function App() {
               onColorChange={setShoeColor}
               onOpacityChange={setOpacity}
             />
-            {/* <LogoSelector logos={logos} activeLogo={activeLogo} onAddLogo={addLogo} /> */}
+            <LogoSelector
+              logos={logos}
+              activeLogo={activeLogo}
+              logoColor={logoColor}
+              onAddLogo={addLogo}
+              onLogoSelect={setActiveLogo}
+            />
+            <LogoColorPicker
+              logoColor={logoColor}
+              onLogoColorChange={setLogoColor}
+            />
           </aside>
         </section>
       </div>
