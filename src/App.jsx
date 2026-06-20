@@ -7,6 +7,7 @@ import ProductImagePicker from './components/ProductImagePicker.jsx';
 import SaveDesign from './components/SaveDesign.jsx';
 
 const logos = [
+  { id: 'spark', name: 'Spark', src: '/assets/Puma_Logo.png' },
   { id: 'spark', name: 'Spark', src: '/assets/logo-spark.png' },
   { id: 'bolt', name: 'Bolt', src: '/assets/logo-bolt.png' },
   { id: 'wave', name: 'Wave', src: '/assets/logo-wave.png' }
@@ -18,7 +19,7 @@ export default function App() {
   const [shoeColor, setShoeColor] = useState('#dc2626');
   const [opacity, setOpacity] = useState(1);
   const [activeLogo, setActiveLogo] = useState(logos[0]);
-  const [logoColor, setLogoColor] = useState('#000000');
+  const [logoColor, setLogoColor] = useState(null);
   const [productSrc, setProductSrc] = useState('/assets/shoe.png');
   const [productName, setProductName] = useState('Sample sock image');
 
@@ -29,6 +30,10 @@ export default function App() {
       }
     };
   }, []);
+
+  useEffect(() => {
+    canvasRef.current?.updateLogoColor(logoColor);
+  }, [logoColor]);
 
   const addLogo = (logo, position) => {
     canvasRef.current?.addLogo(logo.src, position, logoColor);
@@ -107,6 +112,8 @@ export default function App() {
               activeLogo={activeLogo}
               logoColor={logoColor}
               onAddLogo={addLogo}
+              onDeleteSelectedLogo={() => canvasRef.current?.removeSelectedLogo()}
+              onResetLogos={() => canvasRef.current?.resetLogos()}
               onLogoSelect={setActiveLogo}
             />
             <LogoColorPicker

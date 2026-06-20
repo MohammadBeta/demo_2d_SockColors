@@ -1,4 +1,12 @@
-export default function LogoSelector({ logos, activeLogo, logoColor, onAddLogo, onLogoSelect }) {
+export default function LogoSelector({
+  logos,
+  activeLogo,
+  logoColor,
+  onAddLogo,
+  onLogoSelect,
+  onDeleteSelectedLogo,
+  onResetLogos
+}) {
   const handleDragStart = (event, logo) => {
     const logoData = { ...logo, color: logoColor };
     event.dataTransfer.setData('application/json', JSON.stringify(logoData));
@@ -18,9 +26,8 @@ export default function LogoSelector({ logos, activeLogo, logoColor, onAddLogo, 
         {logos.map((logo) => (
           <button
             key={logo.id}
-            className={`group flex aspect-square items-center justify-center rounded-lg border bg-slate-50 p-3 transition hover:border-teal-700 hover:bg-teal-50 ${
-              activeLogo?.id === logo.id ? 'border-teal-700' : 'border-slate-200'
-            }`}
+            className={`group flex aspect-square items-center justify-center rounded-lg border bg-slate-50 p-3 transition hover:border-teal-700 hover:bg-teal-50 ${activeLogo?.id === logo.id ? 'border-teal-700' : 'border-slate-200'
+              }`}
             draggable
             type="button"
             onClick={() => {
@@ -39,9 +46,27 @@ export default function LogoSelector({ logos, activeLogo, logoColor, onAddLogo, 
         ))}
       </div>
 
-      <div className="mt-4 rounded-md bg-slate-100 px-3 py-2 text-sm text-slate-600">
-        Use the Fabric.js handles on the canvas to move, scale, and rotate logo objects.
-      </div>
+      {/* <div className="mt-4 grid grid-cols-2 gap-3">
+        <button
+          className="h-10 rounded-md border border-slate-200 text-sm font-semibold text-slate-700 transition hover:border-teal-700 hover:text-teal-800"
+          type="button"
+          onClick={onDeleteSelectedLogo}
+        >
+          Del selected
+        </button>
+        <button
+          className="h-10 rounded-md border border-rose-200 text-sm font-semibold text-rose-700 transition hover:border-rose-500 hover:text-rose-800"
+          type="button"
+          onClick={onResetLogos}
+        >
+          Reset logos
+        </button>
+      </div> */}
+
+      {/* <div className="mt-4 rounded-md bg-slate-100 px-3 py-2 text-sm text-slate-600">
+        Use the Fabric.js handles on the canvas to move, scale, and rotate logo objects. Press Del
+        to remove the selected logo.
+      </div> */}
     </section>
   );
 }

@@ -203,6 +203,10 @@ async function createRecoloredProductDataUrl(src, color, strength) {
   return canvas.toDataURL('image/png');
 }
 
+function createRecoloredLogoDataUrl(src, color) {
+  return createRecoloredProductDataUrl(src, color, 1);
+}
+
 function loadFabricImage(src) {
   return new Promise((resolve, reject) => {
     fabric.Image.fromURL(
@@ -219,6 +223,33 @@ function loadFabricImage(src) {
   });
 }
 
+function resolveLogoSource(src, logoColor) {
+  return logoColor ? createRecoloredLogoDataUrl(src, logoColor) : Promise.resolve(src);
+}
+
+function preserveImageScale(image, renderedWidth, renderedHeight, nextWidth, nextHeight) {
+  image.set({
+    scaleX: renderedWidth / nextWidth,
+    scaleY: renderedHeight / nextHeight
+  });
+}
+
+function isLogoObject(object) {
+  return Boolean(object && object.isLogo);
+}
+
+function isTextEditingElement(element) {
+  if (!element) return false;
+
+  const tagName = element.tagName;
+  return (
+    tagName === 'INPUT' ||
+    tagName === 'TEXTAREA' ||
+    tagName === 'SELECT' ||
+    element.isContentEditable
+  );
+}
+
 const ShoeCanvas = forwardRef(function ShoeCanvas({ productSrc, color, opacity }, ref) {
   const canvasElementRef = useRef(null);
   const canvasRef = useRef(null);
@@ -227,6 +258,7 @@ const ShoeCanvas = forwardRef(function ShoeCanvas({ productSrc, color, opacity }
   const colorRef = useRef(color);
   const opacityRef = useRef(opacity);
   const tintRequestRef = useRef(0);
+  const logoTintRequestRef = useRef(0);
   const loadRequestRef = useRef(0);
 
   const updateColorOverlay = useCallback(async (nextColor, nextOpacity) => {
@@ -331,18 +363,14 @@ const ShoeCanvas = forwardRef(function ShoeCanvas({ productSrc, color, opacity }
     updateColorOverlay(color, opacity);
   }, [color, opacity, updateColorOverlay]);
 
-  const addLogoObject = async (src, position, logoColor = '#000000') => {
+  const addLogoObject = async (src, position, logoColor = null) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    const logo = await loadFabricImage(src);
+    const tintedSrc = await resolveLogoSource(src, logoColor);
+    const logo = await loadFabricImage(tintedSrc);
     const targetWidth = 128;
     const scale = targetWidth / logo.width;
-
-    if (logoColor && logoColor !== '#000000') {
-      logo.filters = [new fabric.Image.filters.Tint({ color: logoColor })];
-      logo.applyFilters();
-    }
 
     logo.set({
       left: position?.x ?? CANVAS_WIDTH / 2 - 40,
@@ -352,7 +380,10 @@ const ShoeCanvas = forwardRef(function ShoeCanvas({ productSrc, color, opacity }
       angle: position ? 0 : -8,
       cornerStyle: 'circle',
       padding: 8,
-      objectCaching: false
+      objectCaching: false,
+      originalSrc: src,
+      logoColor,
+      isLogo: true
     });
 
     canvas.add(logo);
@@ -360,9 +391,90 @@ const ShoeCanvas = forwardRef(function ShoeCanvas({ productSrc, color, opacity }
     canvas.requestRenderAll();
   };
 
+  const removeSelectedLogos = useCallback(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const selectedObjects = canvas.getActiveObjects();
+    const removableObjects = selectedObjects.filter(isLogoObject);
+
+    if (removableObjects.length === 0) return;
+
+    removableObjects.forEach((object) => canvas.remove(object));
+    canvas.discardActiveObject();
+    canvas.requestRenderAll();
+  }, []);
+
+  const resetLogos = useCallback(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const logoObjects = canvas.getObjects().filter(isLogoObject);
+
+    if (logoObjects.length === 0) return;
+
+    logoObjects.forEach((object) => canvas.remove(object));
+    canvas.discardActiveObject();
+    canvas.requestRenderAll();
+  }, []);
+
+  const updateActiveLogoColor = useCallback((newColor) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const activeObject = canvas.getActiveObject();
+    if (!isLogoObject(activeObject) || !(activeObject instanceof fabric.Image)) return;
+
+    const originalSrc = activeObject.originalSrc;
+    if (!originalSrc) return;
+
+    const renderedWidth = activeObject.getScaledWidth();
+    const renderedHeight = activeObject.getScaledHeight();
+    const requestId = ++logoTintRequestRef.current;
+    resolveLogoSource(originalSrc, newColor)
+      .then((tintedSrc) => {
+        if (requestId !== logoTintRequestRef.current || canvas.getActiveObject() !== activeObject) return;
+
+        const nextImage = new Image();
+        nextImage.onload = () => {
+          if (requestId !== logoTintRequestRef.current || canvas.getActiveObject() !== activeObject) return;
+
+          activeObject.setSrc(tintedSrc, () => {
+            if (requestId !== logoTintRequestRef.current || canvas.getActiveObject() !== activeObject) return;
+
+            preserveImageScale(
+              activeObject,
+              renderedWidth,
+              renderedHeight,
+              nextImage.naturalWidth,
+              nextImage.naturalHeight
+            );
+            activeObject.set('logoColor', newColor ?? null);
+            canvas.requestRenderAll();
+          });
+        };
+        nextImage.onerror = () => {
+          console.error(new Error(`Unable to load image: ${tintedSrc}`));
+        };
+        nextImage.src = tintedSrc;
+      })
+      .catch((error) => {
+        console.error(error);
+      });
+  }, []);
+
   useImperativeHandle(ref, () => ({
     addLogo(src, position, logoColor) {
       addLogoObject(src, position, logoColor);
+    },
+    updateLogoColor(newColor) {
+      updateActiveLogoColor(newColor);
+    },
+    removeSelectedLogo() {
+      removeSelectedLogos();
+    },
+    resetLogos() {
+      resetLogos();
     },
     exportPng() {
       const canvas = canvasRef.current;
@@ -378,6 +490,32 @@ const ShoeCanvas = forwardRef(function ShoeCanvas({ productSrc, color, opacity }
       });
     }
   }));
+
+  useEffect(() => {
+    const handleKeyDown = (event) => {
+      if (event.key !== 'Delete' && event.key !== 'Backspace') return;
+      if (isTextEditingElement(document.activeElement)) return;
+
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+
+      const activeObject = canvas.getActiveObject();
+      const activeObjects = canvas.getActiveObjects();
+      const hasLogoSelection =
+        isLogoObject(activeObject) || activeObjects.some((object) => isLogoObject(object));
+
+      if (!hasLogoSelection) return;
+
+      event.preventDefault();
+      removeSelectedLogos();
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [removeSelectedLogos]);
 
   const handleDrop = (event) => {
     event.preventDefault();
@@ -395,7 +533,7 @@ const ShoeCanvas = forwardRef(function ShoeCanvas({ productSrc, color, opacity }
       y: ((event.clientY - bounds.top) / bounds.height) * CANVAS_HEIGHT
     };
 
-    addLogoObject(logo.src, position, logo.color);
+    addLogoObject(logo.src, position, logo.color ?? null);
   };
 
   return (
